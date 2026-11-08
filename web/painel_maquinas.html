@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel de Máquinas</title>
+<style>
+:root{--bg:#f2f4f7;--card:#fff;--tx:#18212b;--mut:#5f6d7b;--bd:#d9dfe6;--pri:#1f6feb;--mov:#16a34a;--par:#ea580c;--fal:#dc2626;--off:#8b95a1}
+@media (prefers-color-scheme:dark){:root{--bg:#0f141a;--card:#18202a;--tx:#e6edf3;--mut:#94a3b3;--bd:#2b3643;--pri:#4c8dff;--mov:#34c46a;--par:#f38a3c;--fal:#f05252;--off:#6b7684}}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--tx)}
+header{padding:10px 16px;background:var(--card);border-bottom:1px solid var(--bd);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+header h1{font-size:17px;margin:0;flex:1;min-width:180px}
+nav{display:flex;gap:4px;padding:6px 16px;background:var(--card);border-bottom:1px solid var(--bd);overflow-x:auto}
+nav button{border:0;background:none;color:var(--mut);padding:8px 12px;border-radius:6px;cursor:pointer;font:inherit;white-space:nowrap}
+nav button.on{background:var(--bg);color:var(--tx);font-weight:600}
+main{padding:14px 16px;max-width:1500px;margin:0 auto}
+section{display:none}section.on{display:block}
+.btn{border:1px solid var(--bd);background:var(--card);color:var(--tx);padding:7px 13px;border-radius:6px;cursor:pointer;font:inherit}
+.btn.pri{background:var(--pri);border-color:var(--pri);color:#fff}.btn:disabled{opacity:.5;cursor:default}
+.mut{color:var(--mut);font-size:12px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px}
+.kpis div{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:10px 12px}
+.kpis b{display:block;font-size:24px;font-variant-numeric:tabular-nums}
+.kpis small{color:var(--mut)}
+.maqs{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;margin-bottom:14px}
+.mq{background:var(--card);border:1px solid var(--bd);border-left:6px solid var(--off);border-radius:10px;padding:10px 12px}
+.mq.mov{border-left-color:var(--mov)}.mq.par{border-left-color:var(--par)}.mq.fal{border-left-color:var(--fal)}
+.mq .top{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.mq h3{margin:0;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tag{font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;color:#fff;background:var(--off);white-space:nowrap}
+.tag.mov{background:var(--mov)}.tag.par{background:var(--par)}.tag.fal{background:var(--fal)}
+.mq .big{font-size:26px;font-weight:650;font-variant-numeric:tabular-nums;margin:4px 0 0}
+.mq .lin{display:flex;justify-content:space-between;font-size:12.5px;color:var(--mut);font-variant-numeric:tabular-nums}
+.mq .lin span:last-child{color:var(--tx)}
+.bar{height:6px;background:var(--bg);border-radius:3px;overflow:hidden;margin:6px 0 4px}.bar i{display:block;height:100%;background:var(--mov)}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:12px 14px;margin-bottom:14px}
+.card h2{font-size:15px;margin:0 0 8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+canvas{width:100%;display:block}
+.leg{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin-top:6px}.leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--mut)}
+input,select,textarea{font:inherit;padding:6px 8px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--tx);min-width:0}
+.scroll{overflow-x:auto}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th,.tbl td{border-bottom:1px solid var(--bd);padding:5px 6px;text-align:left;white-space:nowrap}
+.tbl input,.tbl select{width:100%;padding:4px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+#log{font:12px ui-monospace,Consolas,monospace;max-height:200px;overflow:auto;background:var(--bg);padding:8px;border-radius:6px;white-space:pre-wrap}
+#report{display:none}
+@media print{
+  header,nav,main{display:none!important} body{background:#fff;color:#000}
+  #report{display:block;font-size:10pt}
+  #report h1{font-size:17pt;margin:0}#report h2{font-size:12.5pt;margin:14px 0 6px;border-bottom:1px solid #999}
+  #report table{width:100%;border-collapse:collapse;font-size:8.5pt}#report th,#report td{border:1px solid #bbb;padding:3px 4px;text-align:left}
+  #report img{width:100%}
+  .pb{page-break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>Painel de Máquinas — Movimento × Parada</h1>
+  <span class="mut" id="relogio"></span>
+  <button class="btn pri" id="bIni">Iniciar</button>
+  <button class="btn" id="bPar" disabled>Parar</button>
+</header>
+<nav id="tabs">
+  <button data-t="pai" class="on">Painel</button>
+  <button data-t="cfg">Configuração</button>
+  <button data-t="rel">Relatório</button>
+</nav>
+<main>
+<section id="pai" class="on">
+  <div class="kpis" id="kpis"></div>
+  <div class="maqs" id="maqs"></div>
+  <div class="card"><h2>Linha do tempo <select id="jan" style="font-size:12px"><option value="600">10 min</option><option value="3600" selected>1 h</option><option value="28800">8 h</option><option value="0">Tudo</option></select></h2>
+    <canvas id="tl"></canvas>
+    <div class="leg"><span><i style="background:var(--mov)"></i>Movimento</span><span><i style="background:var(--par)"></i>Parada</span><span><i style="background:var(--fal)"></i>Falha</span><span><i style="background:var(--off)"></i>Sem comunicação</span></div>
+  </div>
+  <div class="card"><h2>Eventos</h2><div id="log"></div></div>
+</section>
+
+<section id="cfg">
+  <div class="card"><h2>Comunicação (um barramento RS-485 com todos os drives)</h2>
+    <div class="grid">
+      <label>Fonte<select id="modo"><option value="modbus">Modbus RTU (Web Serial)</option><option value="sim">Simulador (sem hardware)</option></select></label>
+      <label>Baud rate<select id="baud"><option>9600</option><option selected>19200</option><option>38400</option><option>57600</option><option>115200</option></select></label>
+      <label>Paridade<select id="par"><option value="none">Nenhuma (N)</option><option value="even" selected>Par (E)</option><option value="odd">Ímpar (O)</option></select></label>
+      <label>Stop bits<select id="sbits"><option>1</option><option>2</option></select></label>
+      <label>Timeout por resposta (ms)<input id="tout" type="number" value="150" min="30"></label>
+      <label>Pausa entre ciclos (ms)<input id="poll" type="number" value="200" min="0"></label>
+      <label>Confirmação de estado (s)<input id="deb" type="number" value="3" step="any" min="0"></label>
+      <label>Falhas p/ "sem comunicação"<input id="nerr" type="number" value="3" min="1"></label>
+    </div>
+    <p class="mut">Todos os drives no mesmo par A/B, cada um com endereço Modbus diferente e a mesma velocidade/paridade. Com 11 drives a 19200 baud, cada volta completa leva cerca de 1 a 2 s.</p>
+  </div>
+  <div class="card"><h2>Máquinas</h2>
+    <div class="scroll"><table class="tbl" id="tm"><thead><tr><th>Ativa</th><th>Nome</th><th>ID Modbus</th><th>Perfil do drive</th><th>Limiar de movimento</th><th>Var. principal</th><th>Var. secundária</th></tr></thead><tbody></tbody></table></div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn" id="bExp">Exportar configuração</button>
+      <label class="btn" style="flex-direction:row">Importar configuração<input type="file" id="fImp" accept=".json" hidden></label>
+    </div>
+    <p class="mut">Endereços e escalas vêm do perfil (os mesmos do leitor_drives.html / perfis.json). Para um drive com mapa próprio, edite o perfil "generico" no perfis.json ou importe uma configuração com "variaveis" na máquina.</p>
+  </div>
+</section>
+
+<section id="rel">
+  <div class="card"><h2>Identificação</h2>
+    <div class="grid">
+      <label>Planta / linha<input id="rLin" placeholder="Ex: Linha de extrusão"></label>
+      <label>Responsável<input id="rResp"></label>
+      <label>Turno<input id="rTur"></label>
+    </div>
+    <label style="margin-top:10px">Observações<textarea id="rObs" rows="2"></textarea></label>
+  </div>
+  <div class="card"><h2>Resumo por máquina</h2><div class="scroll"><table class="tbl" id="tres"></table></div></div>
+  <div class="row">
+    <button class="btn pri" id="bPdf">Gerar PDF</button>
+    <button class="btn" id="bCsv">Exportar resumo (CSV)</button>
+    <button class="btn" id="bCsvC">Exportar ciclos (CSV)</button>
+    <button class="btn" id="bCsvD">Exportar dados brutos (CSV)</button>
+    <button class="btn" id="bLimpa">Limpar dados</button>
+  </div>
+</section>
+</main>
+<div id="report"></div>
+
+<script>
+const PERFIS = {"_nota": "Endereço = offset Modbus base 0 (PDU). Registrador 4xxxx = endereço + 40001. CONFIRME sempre no manual do seu drive/firmware. tipo: u16, s16, u32, s32 (32 bits = palavra alta primeiro). fc: 3 = holding, 4 = input. ascii: chave (modo chave=valor) ou índice de coluna (modo CSV).", "generico": {"nome": "Genérico (editável)", "var_movimento": "velocidade", "limiar": 10, "variaveis": [{"chave": "velocidade", "nome": "Velocidade", "unidade": "rpm", "end": 0, "fc": 3, "tipo": "s16", "escala": 1, "ascii": "RPM"}, {"chave": "corrente", "nome": "Corrente do motor", "unidade": "A", "end": 1, "fc": 3, "tipo": "u16", "escala": 0.1, "ascii": "I"}, {"chave": "frequencia", "nome": "Frequência de saída", "unidade": "Hz", "end": 2, "fc": 3, "tipo": "u16", "escala": 0.1, "ascii": "F"}, {"chave": "torque", "nome": "Torque", "unidade": "%", "end": 3, "fc": 3, "tipo": "s16", "escala": 0.1, "ascii": "T"}, {"chave": "vdc", "nome": "Tensão barramento CC", "unidade": "V", "end": 4, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "VDC"}, {"chave": "temperatura", "nome": "Temperatura", "unidade": "°C", "end": 5, "fc": 3, "tipo": "s16", "escala": 0.1, "ascii": "TEMP"}, {"chave": "falha", "nome": "Código de falha", "unidade": "", "end": 6, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "FALHA", "falha": true}]}, "weg_cfw500": {"nome": "WEG CFW500 / CFW11 (endereço = nº do parâmetro)", "var_movimento": "velocidade", "limiar": 10, "variaveis": [{"chave": "velocidade", "nome": "Velocidade do motor (P0002)", "unidade": "rpm", "end": 2, "fc": 3, "tipo": "s16", "escala": 1, "ascii": "P0002"}, {"chave": "corrente", "nome": "Corrente do motor (P0003)", "unidade": "A", "end": 3, "fc": 3, "tipo": "u16", "escala": 0.1, "ascii": "P0003"}, {"chave": "vdc", "nome": "Tensão barramento CC (P0004)", "unidade": "V", "end": 4, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "P0004"}, {"chave": "frequencia", "nome": "Frequência de saída (P0005)", "unidade": "Hz", "end": 5, "fc": 3, "tipo": "u16", "escala": 0.1, "ascii": "P0005"}, {"chave": "tensao_saida", "nome": "Tensão de saída (P0007)", "unidade": "V", "end": 7, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "P0007"}, {"chave": "torque", "nome": "Torque do motor (P0009)", "unidade": "%", "end": 9, "fc": 3, "tipo": "s16", "escala": 0.1, "ascii": "P0009"}, {"chave": "temperatura", "nome": "Temperatura dissipador (P0030)", "unidade": "°C", "end": 30, "fc": 3, "tipo": "s16", "escala": 0.1, "ascii": "P0030"}, {"chave": "alarme", "nome": "Alarme atual (P0048)", "unidade": "", "end": 48, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "P0048"}, {"chave": "falha", "nome": "Falha atual (P0049)", "unidade": "", "end": 49, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "P0049", "falha": true}]}, "weg_sca06": {"nome": "WEG SCA06 servo (confirmar escalas no manual)", "var_movimento": "velocidade", "limiar": 5, "variaveis": [{"chave": "velocidade", "nome": "Velocidade do motor (P0002)", "unidade": "rpm", "end": 2, "fc": 3, "tipo": "s16", "escala": 1, "ascii": "P0002"}, {"chave": "corrente", "nome": "Corrente do motor (P0003)", "unidade": "A", "end": 3, "fc": 3, "tipo": "u16", "escala": 0.1, "ascii": "P0003"}, {"chave": "vdc", "nome": "Tensão barramento CC (P0004)", "unidade": "V", "end": 4, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "P0004"}, {"chave": "torque", "nome": "Torque (P0009)", "unidade": "%", "end": 9, "fc": 3, "tipo": "s16", "escala": 0.1, "ascii": "P0009"}, {"chave": "falha", "nome": "Falha atual (P0049)", "unidade": "", "end": 49, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "P0049", "falha": true}]}, "siemens_v20_g120": {"nome": "Siemens SINAMICS V20 / G120 (dados de processo)", "var_movimento": "velocidade_pct", "limiar": 1, "variaveis": [{"chave": "zsw", "nome": "Palavra de status ZSW (40110)", "unidade": "", "end": 109, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "ZSW"}, {"chave": "velocidade_pct", "nome": "Velocidade real HIW (40111)", "unidade": "% nominal", "end": 110, "fc": 3, "tipo": "s16", "escala": 0.006103515625, "ascii": "HIW"}]}, "abb_acs355": {"nome": "ABB ACS355 / ACS550 (registrador 4xxxx = 40000 + parâmetro)", "var_movimento": "velocidade", "limiar": 10, "variaveis": [{"chave": "velocidade", "nome": "Velocidade (01.02)", "unidade": "rpm", "end": 101, "fc": 3, "tipo": "s16", "escala": 1, "ascii": "0102"}, {"chave": "frequencia", "nome": "Frequência de saída (01.03)", "unidade": "Hz", "end": 102, "fc": 3, "tipo": "s16", "escala": 0.1, "ascii": "0103"}, {"chave": "corrente", "nome": "Corrente (01.04)", "unidade": "A", "end": 103, "fc": 3, "tipo": "u16", "escala": 0.1, "ascii": "0104"}, {"chave": "torque", "nome": "Torque (01.05)", "unidade": "%", "end": 104, "fc": 3, "tipo": "s16", "escala": 0.1, "ascii": "0105"}, {"chave": "vdc", "nome": "Tensão barramento CC (01.07)", "unidade": "V", "end": 106, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "0107"}, {"chave": "tensao_saida", "nome": "Tensão de saída (01.09)", "unidade": "V", "end": 108, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "0109"}, {"chave": "temperatura", "nome": "Temperatura do drive (01.10)", "unidade": "°C", "end": 109, "fc": 3, "tipo": "s16", "escala": 0.1, "ascii": "0110"}, {"chave": "falha", "nome": "Última falha (04.01)", "unidade": "", "end": 400, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "0401", "falha": true}]}};
+const N = 11, $ = id => document.getElementById(id), sleep = ms => new Promise(r => setTimeout(r, ms));
+const COR = { mov: '--mov', par: '--par', fal: '--fal', off: '--off' }, NOME = { mov: 'MOVIMENTO', par: 'PARADA', fal: 'FALHA', off: 'SEM COMUNICAÇÃO' };
+let maqs = [], rodando = false, porta, leitor, escritor, rxBuf = [], t0 = null, tFim = null, dados = [], simT = 0;
+
+/* ---------------- configuração ---------------- */
+function maqPadrao(i) { return { ativa: true, nome: 'Máquina ' + String(i + 1).padStart(2, '0'), id: i + 1, perfil: 'weg_cfw500', limiar: null, v1: null, v2: null }; }
+function perfilDe(m) { return m.variaveis ? { variaveis: m.variaveis, var_movimento: m.v1 || m.variaveis[0].chave, limiar: 10 } : PERFIS[m.perfil] || PERFIS.generico; }
+function varsDe(m) { return perfilDe(m).variaveis; }
+function v1De(m) { return m.v1 || perfilDe(m).var_movimento; }
+function v2De(m) { if (m.v2 !== null && m.v2 !== undefined) return m.v2; const vs = varsDe(m); return (vs.find(v => v.chave === 'corrente') || {}).chave || ''; }
+function limDe(m) { return m.limiar != null && m.limiar !== '' ? +m.limiar : perfilDe(m).limiar; }
+function novoEstado(m) { m.st = { estado: null, cand: null, candT: 0, ciclos: [], val: {}, erros: 0, falha: 0, falhas: [], stats: {} }; }
+function tabelaMaq() {
+  const tb = $('tm').tBodies[0]; tb.innerHTML = '';
+  maqs.forEach(m => {
+    const tr = tb.insertRow(), cel = el => tr.insertCell().append(el);
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = m.ativa; cb.onchange = () => { m.ativa = cb.checked; montaCards(); }; cel(cb);
+    const inp = (k, tipo = 'text', ph = '') => { const i = document.createElement('input'); i.type = tipo; i.value = m[k] ?? ''; i.placeholder = ph; if (tipo === 'number') i.step = 'any'; i.onchange = () => { m[k] = tipo === 'number' ? (i.value === '' ? null : +i.value) : i.value; montaCards(); }; return i; };
+    cel(inp('nome')); cel(inp('id', 'number'));
+    const sp = document.createElement('select'); for (const [k, p] of Object.entries(PERFIS)) if (!k.startsWith('_')) sp.add(new Option(p.nome, k)); sp.value = m.perfil;
+    sp.onchange = () => { m.perfil = sp.value; m.v1 = m.v2 = null; m.limiar = null; tabelaMaq(); montaCards(); }; cel(sp);
+    cel(inp('limiar', 'number', 'padrão: ' + perfilDe(m).limiar));
+    for (const k of ['v1', 'v2']) {
+      const s = document.createElement('select'); if (k === 'v2') s.add(new Option('(nenhuma)', ''));
+      varsDe(m).forEach(v => s.add(new Option(v.nome, v.chave))); s.value = k === 'v1' ? v1De(m) : v2De(m);
+      s.onchange = () => { m[k] = s.value; montaCards(); }; cel(s);
+    }
+  });
+}
+['modo', 'baud', 'par', 'sbits', 'tout', 'poll', 'deb', 'nerr'].forEach(k => $(k).onchange = salvaLocal);
+function cfgAtual() { const c = { maquinas: maqs.map(({ st, ...m }) => m) }; for (const k of ['modo', 'baud', 'par', 'sbits', 'tout', 'poll', 'deb', 'nerr']) c[k] = $(k).value; return c; }
+function aplicaCfg(c) { maqs = (c.maquinas || []).slice(0, 32).map((m, i) => ({ ...maqPadrao(i), ...m })); for (const k of ['modo', 'baud', 'par', 'sbits', 'tout', 'poll', 'deb', 'nerr']) if (c[k] != null) $(k).value = c[k]; maqs.forEach(novoEstado); tabelaMaq(); montaCards(); }
+function salvaLocal() { try { localStorage.setItem('painel_maquinas_cfg', JSON.stringify(cfgAtual())); } catch (e) { } }
+$('bExp').onclick = () => baixar('painel_maquinas_config.json', JSON.stringify(cfgAtual(), null, 2), 'application/json');
+$('fImp').onchange = async e => { const f = e.target.files[0]; if (f) { aplicaCfg(JSON.parse(await f.text())); salvaLocal(); } };
+document.addEventListener('change', e => { if (e.target.closest('#tm')) salvaLocal(); });
+
+/* ---------------- abas ---------------- */
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('main section').forEach(s => s.classList.toggle('on', s.id === b.dataset.t));
+  if (b.dataset.t === 'rel') tabelaResumo(); if (b.dataset.t === 'pai') { atualiza(); timeline(); }
+});
+
+/* ---------------- Modbus RTU ---------------- */
+function crc16(b) { let c = 0xFFFF; for (const x of b) { c ^= x; for (let i = 0; i < 8; i++) c = c & 1 ? (c >> 1) ^ 0xA001 : c >> 1; } return c; }
+async function leRegs(id, fc, end, qtd) {
+  const f = [id, fc, end >> 8, end & 255, qtd >> 8, qtd & 255], c = crc16(f); f.push(c & 255, c >> 8);
+  rxBuf = []; await escritor.write(new Uint8Array(f));
+  const esp = 5 + 2 * qtd, lim = performance.now() + +$('tout').value + qtd * 1.2;
+  while (performance.now() < lim) { if (rxBuf.length >= 5 && rxBuf[1] & 0x80) throw new Error('exceção ' + rxBuf[2]); if (rxBuf.length >= esp) break; await sleep(3); }
+  if (rxBuf.length < esp) throw new Error('sem resposta');
+  const r = rxBuf.slice(0, esp), cc = crc16(r.slice(0, esp - 2)); if (r[esp - 2] !== (cc & 255) || r[esp - 1] !== cc >> 8) throw new Error('CRC');
+  const o = []; for (let i = 0; i < qtd; i++) o.push(r[3 + 2 * i] << 8 | r[4 + 2 * i]); return o;
+}
+function blocos(vs) { // agrupa registradores próximos para ler em uma única requisição
+  const it = vs.map(v => ({ v, a: +v.end, n: v.tipo.endsWith('32') ? 2 : 1, fc: +v.fc })).sort((x, y) => x.fc - y.fc || x.a - y.a), out = [];
+  for (const x of it) { const b = out[out.length - 1]; if (b && b.fc === x.fc && x.a + x.n - b.a <= 60 && x.a - b.fim <= 12) { b.fim = Math.max(b.fim, x.a + x.n); b.itens.push(x); } else out.push({ fc: x.fc, a: x.a, fim: x.a + x.n, itens: [x] }); }
+  return out;
+}
+function decod(v, regs) { let x = v.tipo.endsWith('32') ? regs[0] * 65536 + regs[1] : regs[0]; if (v.tipo === 's16' && x > 32767) x -= 65536; if (v.tipo === 's32' && x > 2147483647) x -= 4294967296; return x * (+v.escala || 1); }
+async function leMaquina(m) {
+  const val = {}; let ok = 0;
+  for (const b of blocos(varsDe(m))) {
+    try { const r = await leRegs(+m.id, b.fc, b.a, b.fim - b.a); for (const x of b.itens) val[x.v.chave] = decod(x.v, r.slice(x.a - b.a, x.a - b.a + x.n)); ok++; }
+    catch (e) { for (const x of b.itens) val[x.v.chave] = null; m.st.ultErro = e.message; if (e.message === 'sem resposta') break; }
+    await sleep(3);
+  }
+  return ok ? val : null;
+}
+
+/* ---------------- simulador ---------------- */
+function simMaquina(m, i) {
+  if (i === 9 && simT % 300 > 200) return null; // máquina 10 cai a comunicação de vez em quando
+  const per = 30 + i * 7, f = (simT + i * 11) % per, run = per * (0.45 + (i % 4) * 0.12);
+  let rpm = f < 3 ? 1750 * f / 3 : f < run ? 1750 + 12 * Math.sin(simT + i) : f < run + 3 ? 1750 * (run + 3 - f) / 3 : 0;
+  if (i === 6) rpm = 0; // máquina 07 parada o tempo todo
+  rpm *= 0.6 + (i % 3) * 0.2;
+  const mov = rpm > 5, val = {};
+  for (const v of varsDe(m)) {
+    const k = v.chave; let x = 0;
+    if (/veloc/.test(k)) x = k.includes('pct') ? rpm / 17.5 : rpm;
+    else if (k === 'corrente') x = mov ? 3 + i * 0.6 + rpm / 1750 * 3 + Math.random() * .3 : 0;
+    else if (k === 'frequencia') x = rpm / 29.17; else if (k === 'torque') x = mov ? 45 + i * 2 + Math.random() * 6 : 0;
+    else if (k === 'vdc') x = 540 + Math.random() * 6; else if (k === 'tensao_saida') x = rpm / 1750 * 380;
+    else if (k === 'temperatura') x = 36 + i + (mov ? 5 : 0); else if (k === 'zsw') x = mov ? 0xEF37 : 0xEB31;
+    else if (v.falha) x = (i === 3 && simT % 240 > 200) ? 5 : 0;
+    val[k] = Math.round(x / (v.escala || 1)) * (v.escala || 1);
+  }
+  return val;
+}
+
+/* ---------------- estado ---------------- */
+function processa(m, val, t) {
+  const st = m.st;
+  if (!val) { st.erros++; if (st.erros >= +$('nerr').value && st.estado !== 'off') muda(m, 'off', t); return; }
+  st.erros = 0; st.val = val; st.tUlt = t;
+  const fv = varsDe(m).find(v => v.falha), fc = fv ? val[fv.chave] : 0;
+  if (fc && fc !== st.falha) { st.falhas.push({ t, c: fc }); log(`✖ ${m.nome}: falha ${fc}`); }
+  st.falha = fc || 0;
+  const x = val[v1De(m)]; let cond;
+  if (st.falha) cond = 'fal'; else if (x == null) return; else cond = Math.abs(x) > limDe(m) ? 'mov' : 'par';
+  if (st.estado === null || st.estado === 'off' || cond === 'fal' || st.estado === 'fal') { if (cond !== st.estado) muda(m, cond, t); st.cand = null; }
+  else if (cond !== st.estado) { if (st.cand !== cond) { st.cand = cond; st.candT = t; } if (t - st.candT >= +$('deb').value * 1000) muda(m, cond, st.candT); }
+  else st.cand = null;
+  if (st.estado) for (const v of varsDe(m)) { const y = val[v.chave]; if (y == null || v.falha) continue; const s = (st.stats[v.chave] ||= {}); const o = (s[st.estado] ||= { n: 0, s: 0, mn: Infinity, mx: -Infinity }); o.n++; o.s += y; o.mn = Math.min(o.mn, y); o.mx = Math.max(o.mx, y); }
+}
+function muda(m, novo, t) {
+  const st = m.st; if (st.ciclos.length) st.ciclos[st.ciclos.length - 1].fim = t;
+  const ant = st.estado; st.ciclos.push({ e: novo, ini: t, fim: null }); st.estado = novo; st.cand = null;
+  if (ant !== null && novo !== 'fal') log(`${novo === 'mov' ? '▶' : novo === 'par' ? '■' : novo === 'fal' ? '✖' : '⚠'} ${m.nome}: ${NOME[novo].toLowerCase()}`);
+}
+function resumoMaq(m, agora) {
+  const cs = m.st.ciclos.map(c => ({ ...c, fim: c.fim || agora })), soma = e => cs.filter(c => c.e === e).reduce((s, c) => s + (c.fim - c.ini), 0) / 1000;
+  const tm = soma('mov'), tp = soma('par'), tf = soma('fal'), to = soma('off'), base = tm + tp + tf;
+  const pars = cs.filter((c, i) => c.e === 'par' && i > 0), dpar = cs.filter(c => c.e === 'par').map(c => (c.fim - c.ini) / 1000);
+  return { tm, tp, tf, to, util: base ? tm / base * 100 : 0, partidas: cs.filter((c, i) => c.e === 'mov' && i > 0 && cs[i - 1].e !== 'off').length, paradas: pars.length, maxPar: dpar.length ? Math.max(...dpar) : 0, mPar: dpar.length ? dpar.reduce((a, b) => a + b, 0) / dpar.length : 0, nf: m.st.falhas.length, desde: cs.length ? (agora - cs[cs.length - 1].ini) / 1000 : 0 };
+}
+
+/* ---------------- laço ---------------- */
+$('bIni').onclick = async () => {
+  const sim = $('modo').value === 'sim';
+  try {
+    if (!sim) {
+      if (!('serial' in navigator)) return alert('Web Serial indisponível. Use Chrome ou Edge no computador, ou o Simulador.');
+      porta = await navigator.serial.requestPort();
+      await porta.open({ baudRate: +$('baud').value, dataBits: 8, parity: $('par').value, stopBits: +$('sbits').value, bufferSize: 4096 });
+      escritor = porta.writable.getWriter(); leitor = porta.readable.getReader();
+      (async () => { try { while (true) { const { value, done } = await leitor.read(); if (done) break; rxBuf.push(...value); } } catch (e) { } })();
+    }
+    rodando = true; if (!t0) t0 = Date.now(); tFim = null; $('bIni').disabled = true; $('bPar').disabled = false;
+    log('Coleta iniciada (' + (sim ? 'simulador' : 'Modbus RTU') + ')'); laco(sim);
+    document.querySelector('#tabs button[data-t=pai]').click();
+  } catch (e) { alert('Erro ao conectar: ' + e.message); }
+};
+async function laco(sim) {
+  while (rodando) {
+    const ini = performance.now();
+    if (sim) simT += 1;
+    for (let i = 0; i < maqs.length && rodando; i++) {
+      const m = maqs[i]; if (!m.ativa) continue;
+      const val = sim ? simMaquina(m, i) : await leMaquina(m), t = Date.now();
+      processa(m, val, t);
+      if (val) { const vs = [v1De(m), v2De(m)]; dados.push([t, i, m.st.estado, val[vs[0]], vs[1] ? val[vs[1]] : null, m.st.falha]); }
+    }
+    if (dados.length > 600000) dados.splice(0, 100000);
+    atualiza(); agendaTl();
+    await sleep(Math.max(+$('poll').value, sim ? 1000 - (performance.now() - ini) : 0));
+  }
+}
+$('bPar').onclick = async () => {
+  rodando = false; tFim = Date.now(); maqs.forEach(m => { const c = m.st.ciclos; if (c.length) c[c.length - 1].fim = tFim; });
+  try { if (leitor) { await leitor.cancel(); leitor.releaseLock(); } if (escritor) escritor.releaseLock(); if (porta) await porta.close(); } catch (e) { }
+  porta = leitor = escritor = null; $('bIni').disabled = false; $('bPar').disabled = true; log('Coleta parada'); atualiza();
+};
+
+/* ---------------- painel ---------------- */
+function montaCards() {
+  $('maqs').innerHTML = maqs.map((m, i) => m.ativa ? `<div class="mq" id="mq${i}"><div class="top"><h3>${esc(m.nome)}</h3><span class="tag">—</span></div>
+  <div class="big">—</div><div class="lin"><span class="l2"></span><span class="v2"></span></div>
+  <div class="bar"><i style="width:0"></i></div><div class="lin"><span>Utilização</span><span class="ut">—</span></div>
+  <div class="lin"><span>Neste estado há</span><span class="ds">—</span></div><div class="lin"><span>Partidas · paradas</span><span class="pp">—</span></div>
+  <div class="lin"><span>ID ${m.id} · ${esc((PERFIS[m.perfil] || {}).nome || 'personalizado').split(' (')[0]}</span><span class="fa"></span></div></div>` : '').join('');
+  atualiza();
+}
+function atualiza() {
+  const agora = tFim || Date.now(); let nm = 0, np = 0, nf = 0, no = 0, ut = 0, nu = 0, part = 0;
+  maqs.forEach((m, i) => {
+    if (!m.ativa) return; const el = $('mq' + i); if (!el) return; const st = m.st, e = st.estado || 'off', r = resumoMaq(m, agora);
+    ({ mov: () => nm++, par: () => np++, fal: () => nf++, off: () => no++ })[e]();
+    if (r.tm + r.tp + r.tf > 0) { ut += r.util; nu++; } part += r.partidas;
+    el.className = 'mq ' + e; const tg = el.querySelector('.tag'); tg.className = 'tag ' + e; tg.textContent = NOME[e];
+    const vs = varsDe(m), v1 = vs.find(v => v.chave === v1De(m)), v2 = vs.find(v => v.chave === v2De(m));
+    el.querySelector('.big').textContent = e === 'off' || !v1 ? '—' : fmt(st.val[v1.chave], v1) + ' ' + (v1.unidade || '');
+    el.querySelector('.l2').textContent = v2 ? v2.nome.replace(/ \(.*\)/, '') : ''; el.querySelector('.v2').textContent = v2 && e !== 'off' ? fmt(st.val[v2.chave], v2) + ' ' + (v2.unidade || '') : '';
+    el.querySelector('.bar i').style.width = r.util.toFixed(1) + '%'; el.querySelector('.ut').textContent = pct(r.util) + ' %';
+    el.querySelector('.ds').textContent = st.estado ? dur(r.desde) : '—'; el.querySelector('.pp').textContent = r.partidas + ' · ' + r.paradas;
+    el.querySelector('.fa').textContent = st.falha ? 'Falha ' + st.falha : r.nf ? r.nf + ' falha(s)' : '';
+  });
+  const ativas = maqs.filter(m => m.ativa).length;
+  $('kpis').innerHTML = [['Em movimento', nm + ' / ' + ativas, 'var(--mov)'], ['Paradas', np, 'var(--par)'], ['Em falha', nf, 'var(--fal)'], ['Sem comunicação', no, 'var(--off)'], ['Utilização média', nu ? pct(ut / nu) + ' %' : '—'], ['Partidas no período', part], ['Período', t0 ? dur((agora - t0) / 1000) : '—']]
+    .map(([a, b, c]) => `<div${c ? ` style="border-top:4px solid ${c}"` : ''}><small>${a}</small><b>${b}</b></div>`).join('');
+  $('relogio').textContent = new Date().toLocaleString('pt-BR');
+}
+
+/* ---------------- linha do tempo ---------------- */
+let pend = false; function agendaTl() { if (!pend) { pend = true; requestAnimationFrame(() => { pend = false; if ($('pai').classList.contains('on')) timeline(); }); } }
+$('jan').onchange = () => timeline(); addEventListener('resize', () => timeline());
+function timeline(cv = $('tl'), w, imp) {
+  const at = maqs.filter(m => m.ativa), lh = 22, L = 120, T = 4, B = 20, h = T + B + at.length * lh;
+  w = w || cv.clientWidth; if (!w) return; const dpr = devicePixelRatio || 1;
+  cv.style.height = h + 'px'; cv.width = w * dpr; cv.height = h * dpr; const g = cv.getContext('2d'); g.scale(dpr, dpr);
+  const cs = getComputedStyle(document.documentElement), cor = n => imp ? { '--mov': '#16a34a', '--par': '#ea580c', '--fal': '#dc2626', '--off': '#9aa3ad', '--mut': '#333', '--bd': '#ccc' }[n] : cs.getPropertyValue(n).trim();
+  g.fillStyle = imp ? '#fff' : 'transparent'; g.fillRect(0, 0, w, h); g.font = '12px system-ui'; g.textBaseline = 'middle';
+  const tf = tFim || Date.now(), jan = imp ? 0 : +$('jan').value, ti = t0 ? (jan ? Math.max(t0, tf - jan * 1000) : t0) : tf - 60000, pw = w - L - 8, X = t => L + (t - ti) / Math.max(1, tf - ti) * pw;
+  at.forEach((m, r) => {
+    const y = T + r * lh; g.fillStyle = cor('--mut'); g.textAlign = 'right'; g.fillText(m.nome.length > 16 ? m.nome.slice(0, 15) + '…' : m.nome, L - 8, y + lh / 2);
+    g.fillStyle = cor('--bd'); g.globalAlpha = .35; g.fillRect(L, y + 3, pw, lh - 6); g.globalAlpha = 1;
+    for (const c of m.st.ciclos) { const a = Math.max(c.ini, ti), b = c.fim || tf; if (b <= ti) continue; g.fillStyle = cor(COR[c.e]); g.fillRect(X(a), y + 3, Math.max(1, X(b) - X(a)), lh - 6); }
+  });
+  g.fillStyle = cor('--mut'); g.textAlign = 'left'; g.fillText(new Date(ti).toLocaleTimeString('pt-BR'), L, h - 9); g.textAlign = 'right'; g.fillText(new Date(tf).toLocaleTimeString('pt-BR'), L + pw, h - 9);
+}
+
+/* ---------------- relatório ---------------- */
+function linhasResumo() {
+  const agora = tFim || Date.now();
+  return maqs.filter(m => m.ativa).map(m => {
+    const r = resumoMaq(m, agora), vs = varsDe(m), v2 = vs.find(v => v.chave === v2De(m)), s2 = v2 && m.st.stats[v2.chave] && m.st.stats[v2.chave].mov;
+    return { m, r, v2, med2: s2 ? s2.s / s2.n : null, max2: s2 ? s2.mx : null };
+  });
+}
+function htmlResumo() {
+  const L = linhasResumo();
+  return '<thead><tr><th>Máquina</th><th>ID</th><th>Utilização</th><th>Movimento</th><th>Parada</th><th>Falha</th><th>Sem com.</th><th>Partidas</th><th>Paradas</th><th>Parada média</th><th>Maior parada</th><th>Falhas</th><th>Var. sec. em mov. (média / máx)</th></tr></thead><tbody>' +
+    L.map(({ m, r, v2, med2, max2 }) => `<tr><td>${esc(m.nome)}</td><td>${m.id}</td><td>${pct(r.util)} %</td><td>${dur(r.tm)}</td><td>${dur(r.tp)}</td><td>${dur(r.tf)}</td><td>${dur(r.to)}</td><td>${r.partidas}</td><td>${r.paradas}</td><td>${dur(r.mPar)}</td><td>${dur(r.maxPar)}</td><td>${r.nf}</td><td>${v2 && med2 != null ? fmt(med2, v2) + ' / ' + fmt(max2, v2) + ' ' + (v2.unidade || '') : '—'}</td></tr>`).join('') + '</tbody>';
+}
+function tabelaResumo() { $('tres').innerHTML = maqs.some(m => m.st.ciclos.length) ? htmlResumo() : '<tr><td class="mut">Nenhum dado coletado.</td></tr>'; }
+$('bPdf').onclick = () => {
+  if (!maqs.some(m => m.st.ciclos.length)) return alert('Nenhum dado coletado.');
+  const cv = document.createElement('canvas'); document.body.append(cv); timeline(cv, 1000, true); const img = cv.toDataURL('image/png'); cv.remove();
+  const agora = tFim || Date.now(), L = linhasResumo(), tm = L.reduce((s, x) => s + x.r.tm, 0), tb = L.reduce((s, x) => s + x.r.tm + x.r.tp + x.r.tf, 0);
+  const fal = []; maqs.forEach(m => m.st.falhas.forEach(f => fal.push({ ...f, n: m.nome }))); fal.sort((a, b) => a.t - b.t);
+  const rank = [...L].sort((a, b) => b.r.tp + b.r.tf - (a.r.tp + a.r.tf)).slice(0, 5);
+  $('report').innerHTML = `<h1>Relatório de Máquinas — Movimento × Parada</h1><div>Emitido em ${dt(Date.now())}</div>
+  <h2>Identificação</h2><table><tr><th>Planta / linha</th><td>${esc($('rLin').value) || '—'}</td><th>Responsável</th><td>${esc($('rResp').value) || '—'}</td></tr><tr><th>Turno</th><td>${esc($('rTur').value) || '—'}</td><th>Período</th><td>${dt(t0)} até ${dt(agora)} (${dur((agora - t0) / 1000)})</td></tr><tr><th>Máquinas monitoradas</th><td>${L.length}</td><th>Utilização geral</th><td>${pct(tb ? tm / tb * 100 : 0)} %</td></tr></table>
+  <h2>Linha do tempo</h2><img class="pb" src="${img}"><div style="font-size:8pt">Verde = movimento · laranja = parada · vermelho = falha · cinza = sem comunicação</div>
+  <h2>Resumo por máquina</h2><table class="pb">${htmlResumo()}</table>
+  <h2>Maior tempo parado (parada + falha)</h2><table><tr><th>#</th><th>Máquina</th><th>Tempo parado</th><th>Maior parada</th></tr>${rank.map((x, i) => `<tr><td>${i + 1}</td><td>${esc(x.m.nome)}</td><td>${dur(x.r.tp + x.r.tf)}</td><td>${dur(x.r.maxPar)}</td></tr>`).join('')}</table>
+  <h2>Falhas</h2>${fal.length ? '<table><tr><th>Data/hora</th><th>Máquina</th><th>Código</th></tr>' + fal.slice(-200).map(f => `<tr><td>${dt(f.t)}</td><td>${esc(f.n)}</td><td>${f.c}</td></tr>`).join('') + '</table>' : '<p>Nenhuma falha registrada.</p>'}
+  ${$('rObs').value ? '<h2>Observações</h2><p>' + esc($('rObs').value).replace(/\n/g, '<br>') + '</p>' : ''}`;
+  setTimeout(() => print(), 100);
+};
+const dec = x => x == null ? '' : String(+(+x).toFixed(4)).replace('.', ',');
+$('bCsv').onclick = () => {
+  const L = linhasResumo(); if (!L.length) return;
+  baixar('resumo_maquinas_' + stamp() + '.csv', '﻿maquina;id;utilizacao_pct;movimento_s;parada_s;falha_s;sem_comunicacao_s;partidas;paradas;parada_media_s;maior_parada_s;falhas\n' +
+    L.map(({ m, r }) => [m.nome, m.id, dec(r.util), dec(r.tm), dec(r.tp), dec(r.tf), dec(r.to), r.partidas, r.paradas, dec(r.mPar), dec(r.maxPar), r.nf].join(';')).join('\n'), 'text/csv');
+};
+$('bCsvC').onclick = () => {
+  const agora = tFim || Date.now(), l = [];
+  maqs.forEach(m => m.st.ciclos.forEach(c => l.push([m.nome, NOME[c.e].toLowerCase(), dt(c.ini), dt(c.fim || agora), dec(((c.fim || agora) - c.ini) / 1000)].join(';'))));
+  baixar('ciclos_maquinas_' + stamp() + '.csv', '﻿maquina;estado;inicio;fim;duracao_s\n' + l.join('\n'), 'text/csv');
+};
+$('bCsvD').onclick = () => {
+  if (!dados.length) return alert('Nenhum dado.');
+  baixar('dados_maquinas_' + stamp() + '.csv', '﻿data_hora;maquina;estado;var_principal;var_secundaria;falha\n' + dados.map(([t, i, e, a, b, f]) => [dt(t), maqs[i].nome, e ? NOME[e].toLowerCase() : '', dec(a), dec(b), f || 0].join(';')).join('\n'), 'text/csv');
+};
+$('bLimpa').onclick = () => { if (confirm('Apagar todos os dados coletados?')) { maqs.forEach(novoEstado); dados = []; t0 = rodando ? Date.now() : null; tFim = null; simT = 0; atualiza(); timeline(); tabelaResumo(); } };
+
+/* ---------------- util ---------------- */
+function log(msg) { $('log').textContent = new Date().toLocaleTimeString('pt-BR') + '  ' + msg + '\n' + $('log').textContent.slice(0, 20000); }
+function fmt(x, v) { if (x == null) return '—'; const e = +(v && v.escala) || 1, d = e >= 1 ? 0 : Math.min(3, Math.ceil(-Math.log10(e))); return (+x).toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d }); }
+function pct(x) { return x.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }); }
+function dur(s) { s = Math.round(s); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), ss = s % 60; return (h ? h + 'h ' : '') + (h || m ? m + 'min ' : '') + ss + 's'; }
+function dt(t) { const d = new Date(t); return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR'); }
+function stamp() { return new Date().toISOString().slice(0, 16).replace(/[-:T]/g, ''); }
+function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function baixar(n, txt, tipo) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([txt], { type: tipo })); a.download = n; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }
+
+/* ---------------- início ---------------- */
+let salvo = null; try { salvo = JSON.parse(localStorage.getItem('painel_maquinas_cfg')); } catch (e) { }
+aplicaCfg(salvo || { maquinas: Array.from({ length: N }, (_, i) => maqPadrao(i)) });
+setInterval(() => { if (!rodando) $('relogio').textContent = new Date().toLocaleString('pt-BR'); }, 1000);
+</script>
+</body>
+</html>

@@ -6,7 +6,7 @@ if not exist .git git init
 git config user.name >nul 2>nul || git config user.name "engdenilsonrodrigues"
 git config user.email >nul 2>nul || git config user.email "eng.denilsonrodrigues@gmail.com"
 git add .
-git commit -m "Leitor serial de drives: app web + Python + perfis" 
+git commit -m "Atualizacao do projeto %date% %time:~0,5%"
 git branch -M main
 git remote get-url origin >nul 2>nul || git remote add origin https://github.com/engdenilsonrodrigues/leitor-serial-drives.git
 git push -u origin main

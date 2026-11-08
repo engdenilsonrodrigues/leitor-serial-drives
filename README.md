@@ -8,6 +8,14 @@ Duas versões, mesma lógica e mesmos perfis (`perfis.json`):
 | Requisito | Chrome ou Edge no PC (Web Serial) | Python 3.9+ e `pip install -r requirements.txt` |
 | Saídas | PDF (imprimir → Salvar como PDF), CSV de dados, CSV de ciclos | CSV gravado continuamente + PDF + Excel (.xlsx) |
 
+## Painel de várias máquinas (web/painel_maquinas.html)
+- Monitora até 11 máquinas (ou mais) num **único barramento RS-485**: cada drive com um endereço Modbus diferente (1 a 11), mesma velocidade e paridade.
+- Cartão por máquina: estado (movimento / parada / falha / sem comunicação), velocidade, corrente, % de utilização, tempo no estado atual, partidas e paradas.
+- Contadores gerais no topo, linha do tempo de todas as máquinas e registro de eventos.
+- Relatório PDF com resumo por máquina, ranking de tempo parado e lista de falhas. Exporta CSV do resumo, dos ciclos e dos dados brutos.
+- Aba **Configuração**: nome, ID Modbus, perfil e limiar de cada máquina. A configuração fica salva no navegador e pode ser exportada em JSON.
+- Opção **Simulador** para testar sem hardware.
+
 ## Hardware
 - Conversor USB-RS485 (2 fios A/B + GND) ligado à porta Modbus do drive. Para RS-232, cabo direto.
 - No drive: habilite o Modbus RTU e defina endereço, baud, paridade e stop bits iguais aos do app.
