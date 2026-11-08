@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leitor Serial de Drives</title>
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--tx:#1b2430;--mut:#5c6b7a;--bd:#d8dee5;--pri:#1f6feb;--mov:#1a9e55;--par:#c9461d;--warn:#b7791f}
+@media (prefers-color-scheme:dark){:root{--bg:#11161c;--card:#1a2129;--tx:#e6edf3;--mut:#93a1b0;--bd:#2d3742;--pri:#4c8dff;--mov:#3fbf74;--par:#f0714a;--warn:#e0a63a}}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--tx)}
+header{padding:12px 16px;background:var(--card);border-bottom:1px solid var(--bd);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+header h1{font-size:17px;margin:0;flex:1}
+.badge{padding:5px 12px;border-radius:999px;font-weight:600;color:#fff;background:var(--mut)}
+.badge.mov{background:var(--mov)}.badge.par{background:var(--par)}
+nav{display:flex;gap:4px;padding:8px 16px;background:var(--card);border-bottom:1px solid var(--bd);overflow-x:auto}
+nav button{border:0;background:none;color:var(--mut);padding:8px 12px;border-radius:6px;cursor:pointer;font:inherit;white-space:nowrap}
+nav button.on{background:var(--bg);color:var(--tx);font-weight:600}
+main{padding:16px;max-width:1200px;margin:0 auto}
+section{display:none}section.on{display:block}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:14px}
+.card h2{font-size:15px;margin:0 0 10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
+label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--mut)}
+input,select,textarea{font:inherit;padding:6px 8px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--tx);min-width:0}
+.btn{border:1px solid var(--bd);background:var(--card);color:var(--tx);padding:8px 14px;border-radius:6px;cursor:pointer;font:inherit}
+.btn.pri{background:var(--pri);border-color:var(--pri);color:#fff}
+.btn:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th,.tbl td{border-bottom:1px solid var(--bd);padding:5px;text-align:left}
+.tbl input,.tbl select{width:100%;padding:4px}
+.scroll{overflow-x:auto}
+.vals{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.val{background:var(--bg);border-radius:8px;padding:10px}
+.val .n{font-size:12px;color:var(--mut)}.val .v{font-size:22px;font-weight:600;font-variant-numeric:tabular-nums}
+canvas{width:100%;height:260px;display:block}
+#log{font:12px ui-monospace,Consolas,monospace;max-height:220px;overflow:auto;background:var(--bg);padding:8px;border-radius:6px;white-space:pre-wrap}
+.mut{color:var(--mut);font-size:12px}
+.kpi{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.kpi div{background:var(--bg);border-radius:8px;padding:10px}.kpi b{display:block;font-size:20px}
+#report{display:none}
+@media print{
+  body{background:#fff;color:#000}
+  header,nav,main{display:none!important}
+  #report{display:block;padding:0;font-size:11pt}
+  #report h1{font-size:18pt;margin:0 0 4px}#report h2{font-size:13pt;margin:16px 0 6px;border-bottom:1px solid #999}
+  #report table{width:100%;border-collapse:collapse;font-size:9.5pt}
+  #report th,#report td{border:1px solid #bbb;padding:3px 5px;text-align:left}
+  #report img{width:100%;max-height:8cm;object-fit:contain}
+  .pb{page-break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>Leitor Serial de Drives — Relatório de Máquina</h1>
+  <span id="estado" class="badge">Desconectado</span>
+  <span id="tempo" class="mut"></span>
+  <button class="btn" id="bStop" disabled>Parar coleta</button>
+</header>
+<nav id="tabs">
+  <button data-t="con" class="on">1. Conexão</button>
+  <button data-t="var">2. Variáveis</button>
+  <button data-t="mon">3. Monitor</button>
+  <button data-t="rel">4. Relatório</button>
+</nav>
+<main>
+<section id="con" class="on">
+  <div class="card"><h2>Fonte de dados</h2>
+    <div class="grid">
+      <label>Modo<select id="modo">
+        <option value="modbus">Modbus RTU (RS-485/RS-232)</option>
+        <option value="ascii">Texto ASCII (drive envia linhas)</option>
+        <option value="sim">Simulador (teste sem hardware)</option></select></label>
+      <label>Perfil do drive<select id="perfil"></select></label>
+      <label>Baud rate<select id="baud"><option>4800</option><option>9600</option><option selected>19200</option><option>38400</option><option>57600</option><option>115200</option></select></label>
+      <label>Bits de dados<select id="dbits"><option>8</option><option>7</option></select></label>
+      <label>Paridade<select id="par"><option value="none">Nenhuma (N)</option><option value="even">Par (E)</option><option value="odd">Ímpar (O)</option></select></label>
+      <label>Stop bits<select id="sbits"><option>1</option><option>2</option></select></label>
+      <label>Intervalo de leitura Modbus/simulador (ms)<input id="poll" type="number" min="100" value="500"></label>
+    </div>
+  </div>
+  <div class="card" id="cfgModbus"><h2>Modbus RTU</h2>
+    <div class="grid">
+      <label>Endereço do escravo (ID)<input id="slave" type="number" min="1" max="247" value="1"></label>
+      <label>Timeout resposta (ms)<input id="tout" type="number" min="50" value="300"></label>
+    </div>
+  </div>
+  <div class="card" id="cfgAscii" style="display:none"><h2>Texto ASCII</h2>
+    <div class="grid">
+      <label>Formato<select id="afmt"><option value="kv">Chave=valor (ex: RPM=1500;I=3.2)</option><option value="csv">Colunas CSV (índice da coluna)</option></select></label>
+      <label>Separador CSV<input id="asep" value=";"></label>
+      <label>Vírgula decimal<select id="adec"><option value="0">Não (3.2)</option><option value="1">Sim (3,2)</option></select></label>
+    </div>
+    <p class="mut">Cada linha recebida (terminada em \n) vira uma amostra. Mapeie as chaves/colunas na aba Variáveis.</p>
+  </div>
+  <div class="card"><h2>Detecção de movimento × parada</h2>
+    <div class="grid">
+      <label>Variável de referência<select id="vmov"></select></label>
+      <label>Limiar (|valor| acima = movimento)<input id="limiar" type="number" step="any" value="10"></label>
+      <label>Tempo de confirmação (s)<input id="deb" type="number" step="any" min="0" value="2"></label>
+    </div>
+    <p class="mut">O estado só muda depois que a condição se mantém pelo tempo de confirmação, evitando falsas paradas em reversões ou oscilações.</p>
+  </div>
+  <div class="row">
+    <button class="btn pri" id="bConn">Conectar e iniciar</button>
+    <span class="mut" id="suporte"></span>
+  </div>
+</section>
+
+<section id="var">
+  <div class="card"><h2>Mapa de variáveis</h2>
+    <p class="mut">Endereço = offset Modbus base 0 (registrador 4xxxx = endereço + 40001). No Modbus, valor final = bruto × escala. No modo ASCII o valor é usado como recebido (a escala não se aplica). Confirme endereços e escalas no manual do drive.</p>
+    <div class="scroll"><table class="tbl" id="tv"><thead><tr><th>Chave</th><th>Nome</th><th>Unid.</th><th>Endereço</th><th>FC</th><th>Tipo</th><th>Escala</th><th>ASCII (chave/coluna)</th><th>Falha?</th><th></th></tr></thead><tbody></tbody></table></div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn" id="bAdd">+ Variável</button>
+      <button class="btn" id="bExpCfg">Exportar configuração</button>
+      <label class="btn" style="flex-direction:row">Importar configuração<input type="file" id="fCfg" accept=".json" hidden></label>
+    </div>
+  </div>
+</section>
+
+<section id="mon">
+  <div class="card"><h2>Valores atuais</h2><div class="vals" id="vals"></div></div>
+  <div class="card"><h2>Tendência</h2>
+    <div class="row" style="margin-bottom:6px"><label>Variável 2<select id="v2"></select></label><label>Janela<select id="jan"><option value="60">1 min</option><option value="300" selected>5 min</option><option value="1800">30 min</option><option value="0">Tudo</option></select></label></div>
+    <canvas id="cv"></canvas>
+    <p class="mut">Faixa verde = em movimento · faixa laranja = parada</p>
+  </div>
+  <div class="card"><h2>Eventos</h2><div id="log"></div></div>
+</section>
+
+<section id="rel">
+  <div class="card"><h2>Identificação</h2>
+    <div class="grid">
+      <label>Máquina<input id="rMaq" placeholder="Ex: Extrusora 03"></label>
+      <label>Drive / modelo<input id="rDrv"></label>
+      <label>Responsável<input id="rResp"></label>
+      <label>Cliente / setor<input id="rCli"></label>
+    </div>
+    <label style="margin-top:10px">Observações<textarea id="rObs" rows="3"></textarea></label>
+  </div>
+  <div class="card"><h2>Resumo</h2><div class="kpi" id="kpi"></div>
+    <div class="scroll" style="margin-top:12px"><table class="tbl" id="tstat"></table></div>
+  </div>
+  <div class="row">
+    <button class="btn pri" id="bPdf">Gerar PDF</button>
+    <button class="btn" id="bCsv">Exportar dados (CSV)</button>
+    <button class="btn" id="bCsvEv">Exportar ciclos (CSV)</button>
+    <button class="btn" id="bLimpar">Limpar dados</button>
+  </div>
+  <p class="mut">Partidas e paradas contam apenas transições observadas (o estado inicial da coleta não conta). No PDF, escolha "Salvar como PDF" na janela de impressão.</p>
+</section>
+</main>
+<div id="report"></div>
+
+<script>
+const PERFIS = {"_nota": "Endereço = offset Modbus base 0 (PDU). Registrador 4xxxx = endereço + 40001. CONFIRME sempre no manual do seu drive/firmware. tipo: u16, s16, u32, s32 (32 bits = palavra alta primeiro). fc: 3 = holding, 4 = input. ascii: chave (modo chave=valor) ou índice de coluna (modo CSV).", "generico": {"nome": "Genérico (editável)", "var_movimento": "velocidade", "limiar": 10, "variaveis": [{"chave": "velocidade", "nome": "Velocidade", "unidade": "rpm", "end": 0, "fc": 3, "tipo": "s16", "escala": 1, "ascii": "RPM"}, {"chave": "corrente", "nome": "Corrente do motor", "unidade": "A", "end": 1, "fc": 3, "tipo": "u16", "escala": 0.1, "ascii": "I"}, {"chave": "frequencia", "nome": "Frequência de saída", "unidade": "Hz", "end": 2, "fc": 3, "tipo": "u16", "escala": 0.1, "ascii": "F"}, {"chave": "torque", "nome": "Torque", "unidade": "%", "end": 3, "fc": 3, "tipo": "s16", "escala": 0.1, "ascii": "T"}, {"chave": "vdc", "nome": "Tensão barramento CC", "unidade": "V", "end": 4, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "VDC"}, {"chave": "temperatura", "nome": "Temperatura", "unidade": "°C", "end": 5, "fc": 3, "tipo": "s16", "escala": 0.1, "ascii": "TEMP"}, {"chave": "falha", "nome": "Código de falha", "unidade": "", "end": 6, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "FALHA", "falha": true}]}, "weg_cfw500": {"nome": "WEG CFW500 / CFW11 (endereço = nº do parâmetro)", "var_movimento": "velocidade", "limiar": 10, "variaveis": [{"chave": "velocidade", "nome": "Velocidade do motor (P0002)", "unidade": "rpm", "end": 2, "fc": 3, "tipo": "s16", "escala": 1, "ascii": "P0002"}, {"chave": "corrente", "nome": "Corrente do motor (P0003)", "unidade": "A", "end": 3, "fc": 3, "tipo": "u16", "escala": 0.1, "ascii": "P0003"}, {"chave": "vdc", "nome": "Tensão barramento CC (P0004)", "unidade": "V", "end": 4, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "P0004"}, {"chave": "frequencia", "nome": "Frequência de saída (P0005)", "unidade": "Hz", "end": 5, "fc": 3, "tipo": "u16", "escala": 0.1, "ascii": "P0005"}, {"chave": "tensao_saida", "nome": "Tensão de saída (P0007)", "unidade": "V", "end": 7, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "P0007"}, {"chave": "torque", "nome": "Torque do motor (P0009)", "unidade": "%", "end": 9, "fc": 3, "tipo": "s16", "escala": 0.1, "ascii": "P0009"}, {"chave": "temperatura", "nome": "Temperatura dissipador (P0030)", "unidade": "°C", "end": 30, "fc": 3, "tipo": "s16", "escala": 0.1, "ascii": "P0030"}, {"chave": "alarme", "nome": "Alarme atual (P0048)", "unidade": "", "end": 48, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "P0048"}, {"chave": "falha", "nome": "Falha atual (P0049)", "unidade": "", "end": 49, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "P0049", "falha": true}]}, "weg_sca06": {"nome": "WEG SCA06 servo (confirmar escalas no manual)", "var_movimento": "velocidade", "limiar": 5, "variaveis": [{"chave": "velocidade", "nome": "Velocidade do motor (P0002)", "unidade": "rpm", "end": 2, "fc": 3, "tipo": "s16", "escala": 1, "ascii": "P0002"}, {"chave": "corrente", "nome": "Corrente do motor (P0003)", "unidade": "A", "end": 3, "fc": 3, "tipo": "u16", "escala": 0.1, "ascii": "P0003"}, {"chave": "vdc", "nome": "Tensão barramento CC (P0004)", "unidade": "V", "end": 4, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "P0004"}, {"chave": "torque", "nome": "Torque (P0009)", "unidade": "%", "end": 9, "fc": 3, "tipo": "s16", "escala": 0.1, "ascii": "P0009"}, {"chave": "falha", "nome": "Falha atual (P0049)", "unidade": "", "end": 49, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "P0049", "falha": true}]}, "siemens_v20_g120": {"nome": "Siemens SINAMICS V20 / G120 (dados de processo)", "var_movimento": "velocidade_pct", "limiar": 1, "variaveis": [{"chave": "zsw", "nome": "Palavra de status ZSW (40110)", "unidade": "", "end": 109, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "ZSW"}, {"chave": "velocidade_pct", "nome": "Velocidade real HIW (40111)", "unidade": "% nominal", "end": 110, "fc": 3, "tipo": "s16", "escala": 0.006103515625, "ascii": "HIW"}]}, "abb_acs355": {"nome": "ABB ACS355 / ACS550 (registrador 4xxxx = 40000 + parâmetro)", "var_movimento": "velocidade", "limiar": 10, "variaveis": [{"chave": "velocidade", "nome": "Velocidade (01.02)", "unidade": "rpm", "end": 101, "fc": 3, "tipo": "s16", "escala": 1, "ascii": "0102"}, {"chave": "frequencia", "nome": "Frequência de saída (01.03)", "unidade": "Hz", "end": 102, "fc": 3, "tipo": "s16", "escala": 0.1, "ascii": "0103"}, {"chave": "corrente", "nome": "Corrente (01.04)", "unidade": "A", "end": 103, "fc": 3, "tipo": "u16", "escala": 0.1, "ascii": "0104"}, {"chave": "torque", "nome": "Torque (01.05)", "unidade": "%", "end": 104, "fc": 3, "tipo": "s16", "escala": 0.1, "ascii": "0105"}, {"chave": "vdc", "nome": "Tensão barramento CC (01.07)", "unidade": "V", "end": 106, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "0107"}, {"chave": "tensao_saida", "nome": "Tensão de saída (01.09)", "unidade": "V", "end": 108, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "0109"}, {"chave": "temperatura", "nome": "Temperatura do drive (01.10)", "unidade": "°C", "end": 109, "fc": 3, "tipo": "s16", "escala": 0.1, "ascii": "0110"}, {"chave": "falha", "nome": "Última falha (04.01)", "unidade": "", "end": 400, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "0401", "falha": true}]}};
+const $ = id => document.getElementById(id);
+let vars = [], amostras = [], ciclos = [], estado = null, candidato = null, candT = 0;
+let rodando = false, porta = null, leitor = null, escritor = null, rxBuf = [], t0 = null, timer = null, simT = 0;
+
+/* ---------- UI básica ---------- */
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('main section').forEach(s => s.classList.toggle('on', s.id === b.dataset.t));
+  if (b.dataset.t === 'rel') resumo(); if (b.dataset.t === 'mon') desenhar();
+});
+for (const [k, p] of Object.entries(PERFIS)) if (!k.startsWith('_')) $('perfil').add(new Option(p.nome, k));
+$('perfil').onchange = () => carregaPerfil($('perfil').value);
+$('modo').onchange = () => { const m = $('modo').value; $('cfgModbus').style.display = m === 'modbus' ? '' : 'none'; $('cfgAscii').style.display = m === 'ascii' ? '' : 'none'; };
+$('suporte').textContent = 'serial' in navigator ? '' : 'Este navegador não tem Web Serial. Use Chrome ou Edge no computador (o simulador funciona em qualquer navegador).';
+
+function carregaPerfil(k) {
+  const p = PERFIS[k]; vars = p.variaveis.map(v => ({ ...v }));
+  $('limiar').value = p.limiar; tabelaVars(); $('vmov').value = p.var_movimento;
+}
+function tabelaVars() {
+  const tb = $('tv').tBodies[0]; tb.innerHTML = '';
+  vars.forEach((v, i) => {
+    const tr = tb.insertRow();
+    const campo = (k, tipo = 'text') => { const td = tr.insertCell(); const inp = document.createElement('input'); inp.type = tipo; if (tipo === 'number') inp.step = 'any'; inp.value = v[k] ?? ''; inp.onchange = () => { v[k] = tipo === 'number' ? +inp.value : inp.value; atualizaSelects(); }; td.append(inp); };
+    const sel = (k, ops) => { const td = tr.insertCell(); const s = document.createElement('select'); ops.forEach(o => s.add(new Option(o[1], o[0]))); s.value = String(v[k]); s.onchange = () => v[k] = k === 'fc' ? +s.value : s.value; td.append(s); };
+    campo('chave'); campo('nome'); campo('unidade'); campo('end', 'number');
+    sel('fc', [['3', '03 Holding'], ['4', '04 Input']]); sel('tipo', [['u16', 'u16'], ['s16', 's16'], ['u32', 'u32'], ['s32', 's32']]);
+    campo('escala', 'number'); campo('ascii');
+    const tdf = tr.insertCell(); const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!v.falha; cb.onchange = () => v.falha = cb.checked; tdf.append(cb);
+    const td = tr.insertCell(); const b = document.createElement('button'); b.className = 'btn'; b.textContent = '×'; b.onclick = () => { vars.splice(i, 1); tabelaVars(); }; td.append(b);
+  });
+  atualizaSelects();
+}
+function atualizaSelects() {
+  for (const id of ['vmov', 'v2']) { const s = $(id), old = s.value; s.innerHTML = ''; if (id === 'v2') s.add(new Option('(nenhuma)', '')); vars.forEach(v => s.add(new Option(v.nome || v.chave, v.chave))); if ([...s.options].some(o => o.value === old)) s.value = old; }
+  if (!$('v2').value) { const c = vars.find(v => v.chave === 'corrente'); if (c) $('v2').value = c.chave; }
+}
+$('bAdd').onclick = () => { vars.push({ chave: 'var' + (vars.length + 1), nome: 'Nova variável', unidade: '', end: 0, fc: 3, tipo: 'u16', escala: 1, ascii: '' }); tabelaVars(); };
+$('bExpCfg').onclick = () => baixar('config_drive.json', JSON.stringify(coletaCfg(), null, 2), 'application/json');
+$('fCfg').onchange = async e => { const f = e.target.files[0]; if (!f) return; const c = JSON.parse(await f.text()); vars = c.variaveis; tabelaVars(); for (const k of ['modo', 'baud', 'dbits', 'par', 'sbits', 'slave', 'poll', 'tout', 'afmt', 'asep', 'adec', 'limiar', 'deb']) if (c[k] != null) $(k).value = c[k]; if (c.vmov) $('vmov').value = c.vmov; $('modo').onchange(); };
+function coletaCfg() { const c = { variaveis: vars, vmov: $('vmov').value }; for (const k of ['modo', 'baud', 'dbits', 'par', 'sbits', 'slave', 'poll', 'tout', 'afmt', 'asep', 'adec', 'limiar', 'deb']) c[k] = $(k).value; return c; }
+
+/* ---------- Modbus RTU ---------- */
+function crc16(b) { let c = 0xFFFF; for (const x of b) { c ^= x; for (let i = 0; i < 8; i++) c = c & 1 ? (c >> 1) ^ 0xA001 : c >> 1; } return c; }
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function leRegs(id, fc, end, qtd) {
+  const f = [id, fc, end >> 8, end & 255, qtd >> 8, qtd & 255]; const c = crc16(f); f.push(c & 255, c >> 8);
+  rxBuf = []; await escritor.write(new Uint8Array(f));
+  const esper = 5 + 2 * qtd, lim = performance.now() + +$('tout').value;
+  while (performance.now() < lim) {
+    if (rxBuf.length >= 5 && (rxBuf[1] & 0x80)) throw new Error('Exceção Modbus código ' + rxBuf[2] + ' (end. ' + end + ')');
+    if (rxBuf.length >= esper) break; await sleep(5);
+  }
+  if (rxBuf.length < esper) throw new Error('Sem resposta (end. ' + end + ')');
+  const r = rxBuf.slice(0, esper), cc = crc16(r.slice(0, esper - 2));
+  if (r[esper - 2] !== (cc & 255) || r[esper - 1] !== (cc >> 8)) throw new Error('CRC inválido (end. ' + end + ')');
+  const out = []; for (let i = 0; i < qtd; i++) out.push((r[3 + 2 * i] << 8) | r[4 + 2 * i]); return out;
+}
+function decod(v, regs) {
+  let x = v.tipo.endsWith('32') ? regs[0] * 65536 + regs[1] : regs[0];
+  if (v.tipo === 's16' && x > 32767) x -= 65536; if (v.tipo === 's32' && x > 2147483647) x -= 4294967296;
+  return x * (+v.escala || 1);
+}
+async function cicloModbus() {
+  const id = +$('slave').value, val = {};
+  for (const v of vars) {
+    try { val[v.chave] = decod(v, await leRegs(id, +v.fc, +v.end, v.tipo.endsWith('32') ? 2 : 1)); }
+    catch (e) { val[v.chave] = null; logErr(e.message); }
+    await sleep(4);
+  }
+  return val;
+}
+let ultErr = '', ultErrT = 0;
+function logErr(m) { const t = Date.now(); if (m !== ultErr || t - ultErrT > 10000) { log('⚠ ' + m); ultErr = m; ultErrT = t; } }
+
+/* ---------- ASCII ---------- */
+let linhaBuf = '';
+function rxAscii(bytes) {
+  linhaBuf += new TextDecoder().decode(bytes);
+  let i; while ((i = linhaBuf.indexOf('\n')) >= 0) { const l = linhaBuf.slice(0, i).trim(); linhaBuf = linhaBuf.slice(i + 1); if (l) { const v = parseLinha(l); if (v) registra(v); } }
+  if (linhaBuf.length > 4096) linhaBuf = '';
+}
+function num(s) { if (s == null) return null; s = String(s).trim(); if ($('adec').value === '1') s = s.replace(/\./g, '').replace(',', '.'); const n = parseFloat(s); return isNaN(n) ? null : n; }
+function parseLinha(l) {
+  const val = {}; let achou = false;
+  if ($('afmt').value === 'csv') {
+    const cols = l.split($('asep').value || ';');
+    for (const v of vars) { const n = num(cols[parseInt(v.ascii)]); val[v.chave] = n == null ? null : n * (+v.escala_ascii || 1); if (n != null) achou = true; }
+  } else {
+    const re = $('adec').value === '1' ? /([A-Za-z_][\w.]*)\s*[=:]\s*(-?\d+(?:,\d+)?)/g : /([A-Za-z_0-9][\w.]*)\s*[=:]\s*(-?\d+(?:\.\d+)?)/g;
+    const kv = {}; let m; while ((m = re.exec(l))) kv[m[1].toUpperCase()] = m[2];
+    for (const v of vars) { const n = num(kv[String(v.ascii).toUpperCase()]); val[v.chave] = n == null ? null : n * (+v.escala_ascii || 1); if (n != null) achou = true; }
+  }
+  return achou ? val : null;
+}
+
+/* ---------- Simulador ---------- */
+function cicloSim() {
+  simT += +$('poll').value / 1000; const per = 40, f = simT % per; let rpm;
+  if (f < 3) rpm = 1750 * f / 3; else if (f < 22) rpm = 1750 + 15 * Math.sin(simT); else if (f < 25) rpm = 1750 * (25 - f) / 3; else rpm = 0;
+  const mov = rpm > 5, val = {};
+  for (const v of vars) {
+    const k = v.chave; let x = 0;
+    if (/veloc/.test(k)) x = k.includes('pct') ? rpm / 17.5 : rpm;
+    else if (k === 'corrente') x = mov ? 4.2 + rpm / 1750 * 3 + Math.random() * .3 : 0.05;
+    else if (k === 'frequencia') x = rpm / 29.17;
+    else if (k === 'torque') x = mov ? 55 + Math.random() * 8 : 0;
+    else if (k === 'vdc') x = 540 + Math.random() * 6 + (f > 22 && f < 25 ? 60 : 0);
+    else if (k === 'tensao_saida') x = rpm / 1750 * 380;
+    else if (k === 'temperatura') x = 38 + 6 * Math.sin(simT / 300) + (mov ? 4 : 0);
+    else if (k === 'zsw') x = mov ? 0xEF37 : 0xEB31;
+    else if (v.falha) x = Math.random() < 0.002 ? 2 : 0;
+    val[k] = Math.round(x / (v.escala || 1)) * (v.escala || 1);
+  }
+  return val;
+}
+
+/* ---------- Registro e estado ---------- */
+function registra(val) {
+  const t = Date.now(); if (!t0) t0 = t;
+  const vr = val[$('vmov').value], lim = +$('limiar').value, deb = +$('deb').value * 1000;
+  if (vr != null) {
+    const cond = Math.abs(vr) > lim ? 'mov' : 'par';
+    if (estado === null) mudaEstado(cond, t);
+    else if (cond !== estado) { if (candidato !== cond) { candidato = cond; candT = t; } if (t - candT >= deb) mudaEstado(cond, candT); }
+    else candidato = null;
+  }
+  for (const v of vars) if (v.falha && val[v.chave]) { const ant = amostras.length ? amostras[amostras.length - 1].v[v.chave] : 0; if (ant !== val[v.chave]) log('✖ ' + v.nome + ': código ' + val[v.chave]); }
+  amostras.push({ t, v: val, e: estado });
+  if (amostras.length > 500000) amostras.splice(0, 50000);
+  mostraValores(val); agendaDesenho();
+}
+function mudaEstado(novo, t) {
+  if (ciclos.length) { const c = ciclos[ciclos.length - 1]; c.fim = t; }
+  // reclassifica amostras do período de confirmação
+  for (let i = amostras.length - 1; i >= 0 && amostras[i].t >= t; i--) amostras[i].e = novo;
+  ciclos.push({ e: novo, ini: t, fim: null });
+  estado = novo; candidato = null;
+  $('estado').textContent = novo === 'mov' ? 'EM MOVIMENTO' : 'PARADA'; $('estado').className = 'badge ' + novo;
+  log((novo === 'mov' ? '▶ Início de movimento' : '■ Máquina parada'));
+}
+function mostraValores(val) {
+  const box = $('vals'); if (box.children.length !== vars.length) { box.innerHTML = vars.map(v => `<div class="val"><div class="n">${esc(v.nome)}</div><div class="v" id="val_${v.chave}">—</div></div>`).join(''); }
+  for (const v of vars) { const el = $('val_' + v.chave); if (el) el.textContent = val[v.chave] == null ? '—' : fmt(val[v.chave], v) + ' ' + (v.unidade || ''); }
+  $('tempo').textContent = t0 ? 'Gravando: ' + dur((Date.now() - t0) / 1000) + ' · ' + amostras.length + ' amostras' : '';
+}
+function log(m) { const d = new Date(); $('log').textContent = d.toLocaleTimeString('pt-BR') + '  ' + m + '\n' + $('log').textContent.slice(0, 20000); }
+
+/* ---------- Conexão ---------- */
+$('bConn').onclick = async () => {
+  const modo = $('modo').value;
+  try {
+    if (modo !== 'sim') {
+      if (!('serial' in navigator)) return alert('Web Serial indisponível. Use Chrome/Edge no computador.');
+      porta = await navigator.serial.requestPort();
+      await porta.open({ baudRate: +$('baud').value, dataBits: +$('dbits').value, parity: $('par').value, stopBits: +$('sbits').value, bufferSize: 4096 });
+      escritor = porta.writable.getWriter(); leitor = porta.readable.getReader(); loopLeitura(modo);
+    }
+    rodando = true; $('bConn').disabled = true; $('bStop').disabled = false; log('Conectado — modo ' + modo);
+    if (modo !== 'ascii') loopPoll(modo);
+    document.querySelector('#tabs button[data-t=mon]').click();
+  } catch (e) { alert('Erro ao conectar: ' + e.message); }
+};
+async function loopLeitura(modo) {
+  try { while (true) { const { value, done } = await leitor.read(); if (done) break; if (modo === 'ascii') rxAscii(value); else rxBuf.push(...value); } }
+  catch (e) { if (rodando) log('⚠ Leitura: ' + e.message); }
+}
+async function loopPoll(modo) {
+  while (rodando) {
+    const ini = performance.now();
+    const val = modo === 'sim' ? cicloSim() : await cicloModbus();
+    if (Object.values(val).some(x => x != null)) registra(val);
+    await sleep(Math.max(0, +$('poll').value - (performance.now() - ini)));
+  }
+}
+$('bStop').onclick = async () => {
+  rodando = false; if (ciclos.length) ciclos[ciclos.length - 1].fim = Date.now();
+  try { if (leitor) { await leitor.cancel(); leitor.releaseLock(); } if (escritor) escritor.releaseLock(); if (porta) await porta.close(); } catch (e) { }
+  leitor = escritor = porta = null; $('bConn').disabled = false; $('bStop').disabled = true;
+  $('estado').textContent = 'Desconectado'; $('estado').className = 'badge'; estado = null; log('Coleta encerrada');
+};
+
+/* ---------- Gráfico ---------- */
+let pend = false; function agendaDesenho() { if (!pend) { pend = true; requestAnimationFrame(() => { pend = false; if ($('mon').classList.contains('on')) desenhar(); }); } }
+$('v2').onchange = desenhar; $('jan').onchange = desenhar; addEventListener('resize', desenhar);
+function desenhar(cv = $('cv'), janela = +$('jan').value, w, h) {
+  const dpr = devicePixelRatio || 1; w = w || cv.clientWidth; h = h || cv.clientHeight; if (!w) return;
+  cv.width = w * dpr; cv.height = h * dpr; const g = cv.getContext('2d'); g.scale(dpr, dpr);
+  const css = getComputedStyle(document.documentElement), cor = n => css.getPropertyValue(n).trim() || '#888';
+  const imp = cv !== $('cv'); const cTx = imp ? '#333' : cor('--mut'), cBd = imp ? '#ddd' : cor('--bd');
+  g.clearRect(0, 0, w, h); if (imp) { g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); }
+  if (amostras.length < 2) { g.fillStyle = cTx; g.fillText('Sem dados ainda', 10, 20); return; }
+  const tf = amostras[amostras.length - 1].t, ti = janela ? Math.max(amostras[0].t, tf - janela * 1000) : amostras[0].t;
+  let dados = amostras.filter(a => a.t >= ti); const passo = Math.ceil(dados.length / (w * 2)); if (passo > 1) dados = dados.filter((_, i) => i % passo === 0);
+  const L = 52, R = 52, T = 10, B = 24, pw = w - L - R, ph = h - T - B, X = t => L + (t - ti) / Math.max(1, tf - ti) * pw;
+  for (const c of ciclos) { const a = Math.max(c.ini, ti), b = c.fim || tf; if (b < ti) continue; g.fillStyle = c.e === 'mov' ? 'rgba(26,158,85,.13)' : 'rgba(201,70,29,.12)'; g.fillRect(X(a), T, X(b) - X(a), ph); }
+  g.strokeStyle = cBd; g.strokeRect(L, T, pw, ph); g.fillStyle = cTx; g.font = '11px system-ui';
+  const serie = (k, lado, c) => {
+    const v = vars.find(x => x.chave === k); if (!v) return; const ys = dados.map(a => a.v[k]).filter(x => x != null); if (!ys.length) return;
+    let mn = Math.min(...ys), mx = Math.max(...ys); if (mn === mx) { mn -= 1; mx += 1; } const Y = y => T + ph - (y - mn) / (mx - mn) * ph;
+    g.strokeStyle = c; g.lineWidth = 1.5; g.beginPath(); let st = false; for (const a of dados) { const y = a.v[k]; if (y == null) { st = false; continue; } st ? g.lineTo(X(a.t), Y(y)) : g.moveTo(X(a.t), Y(y)); st = true; } g.stroke();
+    g.fillStyle = c; g.textAlign = lado ? 'left' : 'right'; const xx = lado ? w - R + 4 : L - 4;
+    g.fillText(fmt(mx, v), xx, T + 9); g.fillText(fmt(mn, v), xx, T + ph); g.save(); g.translate(lado ? w - 6 : 10, T + ph / 2); g.rotate(-Math.PI / 2); g.textAlign = 'center'; g.fillText(v.nome + (v.unidade ? ' (' + v.unidade + ')' : ''), 0, 0); g.restore();
+  };
+  serie($('vmov').value, 0, '#1f6feb'); if ($('v2').value) serie($('v2').value, 1, '#d97706');
+  g.fillStyle = cTx; g.textAlign = 'left'; g.fillText(new Date(ti).toLocaleTimeString('pt-BR'), L, h - 6); g.textAlign = 'right'; g.fillText(new Date(tf).toLocaleTimeString('pt-BR'), L + pw, h - 6);
+}
+
+/* ---------- Relatório ---------- */
+function calcula() {
+  if (!amostras.length) return null;
+  const ini = amostras[0].t, fim = amostras[amostras.length - 1].t, tot = (fim - ini) / 1000;
+  const cs = ciclos.map(c => ({ ...c, fim: c.fim || fim, d: ((c.fim || fim) - c.ini) / 1000 }));
+  const tm = cs.filter(c => c.e === 'mov').reduce((s, c) => s + c.d, 0), tp = cs.filter(c => c.e === 'par').reduce((s, c) => s + c.d, 0);
+  const mov = cs.filter(c => c.e === 'mov'), par = cs.filter(c => c.e === 'par');
+  const partidas = cs.filter((c, i) => c.e === 'mov' && i > 0).length, paradas = cs.filter((c, i) => c.e === 'par' && i > 0).length;
+  const st = {};
+  for (const v of vars) {
+    const s = { mov: [], par: [] }; for (const a of amostras) if (a.v[v.chave] != null && a.e) s[a.e].push(a.v[v.chave]);
+    const r = arr => arr.length ? { mn: Math.min(...arr), md: arr.reduce((x, y) => x + y, 0) / arr.length, mx: Math.max(...arr), n: arr.length } : null;
+    st[v.chave] = { mov: r(s.mov), par: r(s.par) };
+  }
+  const falhas = []; for (const v of vars) if (v.falha) { let ant = 0; for (const a of amostras) { const x = a.v[v.chave]; if (x && x !== ant) falhas.push({ t: a.t, v: v.nome, c: x }); if (x != null) ant = x; } }
+  const media = a => a.length ? a.reduce((s, c) => s + c.d, 0) / a.length : 0;
+  return { partidas, paradas, ini, fim, tot, tm, tp, cs, mov, par, st, falhas, mMov: media(mov), mPar: media(par), maxPar: par.length ? Math.max(...par.map(c => c.d)) : 0, disp: tm + tp ? tm / (tm + tp) * 100 : 0 };
+}
+function resumo() {
+  const r = calcula(); if (!r) { $('kpi').innerHTML = '<p class="mut">Nenhum dado coletado.</p>'; $('tstat').innerHTML = ''; return; }
+  $('kpi').innerHTML = [['Período monitorado', dur(r.tot)], ['Tempo em movimento', dur(r.tm)], ['Tempo parada', dur(r.tp)], ['Utilização', pct(r.disp) + ' %'], ['Partidas', r.partidas], ['Paradas', r.paradas], ['Duração média movimento', dur(r.mMov)], ['Duração média parada', dur(r.mPar)], ['Maior parada', dur(r.maxPar)], ['Falhas registradas', r.falhas.length]].map(([a, b]) => `<div>${a}<b>${b}</b></div>`).join('');
+  $('tstat').innerHTML = tabStat(r);
+}
+function tabStat(r) {
+  const c = (o, v) => o ? `<td>${fmt(o.mn, v)}</td><td>${fmt(o.md, v)}</td><td>${fmt(o.mx, v)}</td>` : '<td>—</td><td>—</td><td>—</td>';
+  return '<thead><tr><th rowspan="2">Variável</th><th rowspan="2">Unid.</th><th colspan="3">Em movimento</th><th colspan="3">Parada</th></tr><tr><th>Mín</th><th>Média</th><th>Máx</th><th>Mín</th><th>Média</th><th>Máx</th></tr></thead><tbody>' +
+    vars.filter(v => !v.falha).map(v => `<tr><td>${esc(v.nome)}</td><td>${esc(v.unidade || '')}</td>${c(r.st[v.chave].mov, v)}${c(r.st[v.chave].par, v)}</tr>`).join('') + '</tbody>';
+}
+$('bPdf').onclick = () => {
+  const r = calcula(); if (!r) return alert('Nenhum dado coletado.');
+  const cv = document.createElement('canvas'); cv.style.width = '1000px'; cv.style.height = '320px'; document.body.append(cv); desenhar(cv, 0, 1000, 320); const img = cv.toDataURL('image/png'); cv.remove();
+  const id = (l, i) => `<tr><th style="width:30%">${l}</th><td>${esc($(i).value) || '—'}</td></tr>`;
+  const lista = r.cs.slice(-300).map((c, i) => `<tr><td>${i + 1}</td><td>${c.e === 'mov' ? 'Movimento' : 'Parada'}</td><td>${dt(c.ini)}</td><td>${dt(c.fim)}</td><td>${dur(c.d)}</td></tr>`).join('');
+  $('report').innerHTML = `<h1>Relatório de Máquina — Movimento × Parada</h1><div>Emitido em ${dt(Date.now())}</div>
+  <h2>Identificação</h2><table>${id('Máquina', 'rMaq')}${id('Drive / modelo', 'rDrv')}${id('Responsável', 'rResp')}${id('Cliente / setor', 'rCli')}<tr><th>Perfil / modo</th><td>${esc($('perfil').selectedOptions[0].text)} · ${esc($('modo').selectedOptions[0].text)}</td></tr><tr><th>Período</th><td>${dt(r.ini)} até ${dt(r.fim)} (${dur(r.tot)})</td></tr><tr><th>Critério de movimento</th><td>|${esc($('vmov').selectedOptions[0]?.text || '')}| &gt; ${$('limiar').value}, confirmação ${$('deb').value} s</td></tr></table>
+  <h2>Resumo operacional</h2><table class="pb"><tr><th>Tempo em movimento</th><td>${dur(r.tm)} (${pct(r.disp)} %)</td><th>Tempo parada</th><td>${dur(r.tp)} (${pct(100 - r.disp)} %)</td></tr><tr><th>Partidas</th><td>${r.partidas}</td><th>Paradas</th><td>${r.paradas}</td></tr><tr><th>Duração média de movimento</th><td>${dur(r.mMov)}</td><th>Duração média de parada</th><td>${dur(r.mPar)}</td></tr><tr><th>Maior parada</th><td>${dur(r.maxPar)}</td><th>Falhas registradas</th><td>${r.falhas.length}</td></tr></table>
+  <h2>Tendência</h2><img class="pb" src="${img}"><div style="font-size:9pt">Faixa verde = movimento · faixa laranja = parada · azul = ${esc($('vmov').selectedOptions[0]?.text || '')}${$('v2').value ? ' · laranja = ' + esc($('v2').selectedOptions[0].text) : ''}</div>
+  <h2>Grandezas por estado</h2><table class="pb">${tabStat(r)}</table>
+  <h2>Falhas</h2>${r.falhas.length ? '<table><tr><th>Data/hora</th><th>Variável</th><th>Código</th></tr>' + r.falhas.map(f => `<tr><td>${dt(f.t)}</td><td>${esc(f.v)}</td><td>${f.c}</td></tr>`).join('') + '</table>' : '<p>Nenhuma falha registrada no período.</p>'}
+  <h2>Ciclos${r.cs.length > 300 ? ' (últimos 300)' : ''}</h2><table><tr><th>#</th><th>Estado</th><th>Início</th><th>Fim</th><th>Duração</th></tr>${lista}</table>
+  ${$('rObs').value ? '<h2>Observações</h2><p>' + esc($('rObs').value).replace(/\n/g, '<br>') + '</p>' : ''}`;
+  setTimeout(() => print(), 100);
+};
+$('bCsv').onclick = () => {
+  if (!amostras.length) return alert('Nenhum dado.');
+  const cab = ['data_hora', 'estado', ...vars.map(v => v.chave + (v.unidade ? ' [' + v.unidade + ']' : ''))];
+  const linhas = amostras.map(a => [dt(a.t, true), a.e === 'mov' ? 'movimento' : a.e === 'par' ? 'parada' : '', ...vars.map(v => a.v[v.chave] == null ? '' : String(+a.v[v.chave].toFixed(4)).replace('.', ','))].join(';'));
+  baixar('dados_drive_' + stamp() + '.csv', '﻿' + cab.join(';') + '\n' + linhas.join('\n'), 'text/csv');
+};
+$('bCsvEv').onclick = () => {
+  const r = calcula(); if (!r) return alert('Nenhum dado.');
+  baixar('ciclos_drive_' + stamp() + '.csv', '﻿n;estado;inicio;fim;duracao_s\n' + r.cs.map((c, i) => [i + 1, c.e === 'mov' ? 'movimento' : 'parada', dt(c.ini, true), dt(c.fim, true), c.d.toFixed(1).replace('.', ',')].join(';')).join('\n'), 'text/csv');
+};
+$('bLimpar').onclick = () => { if (confirm('Apagar todos os dados coletados?')) { amostras = []; ciclos = []; t0 = null; estado = null; simT = 0; resumo(); desenhar(); } };
+
+/* ---------- util ---------- */
+function fmt(x, v) { if (x == null) return '—'; const e = +(v && v.escala) || 1; const d = e >= 1 ? 0 : Math.min(3, Math.ceil(-Math.log10(e))); return x.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d }); }
+function pct(x) { return x.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }); }
+function dur(s) { s = Math.round(s); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), ss = s % 60; return (h ? h + 'h ' : '') + (h || m ? m + 'min ' : '') + ss + 's'; }
+function dt(t, csv) { const d = new Date(t); return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR') + (csv ? '' : ''); }
+function stamp() { return new Date().toISOString().slice(0, 16).replace(/[-:T]/g, ''); }
+function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function baixar(nome, txt, tipo) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([txt], { type: tipo })); a.download = nome; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }
+
+carregaPerfil('generico');
+</script>
+</body>
+</html>

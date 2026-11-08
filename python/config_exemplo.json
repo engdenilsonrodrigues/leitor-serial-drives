@@ -1,0 +1,24 @@
+{
+  "_ajuda": "perfil: generico | weg_cfw500 | weg_sca06 | siemens_v20_g120 | abb_acs355. Para mapa próprio, adicione a lista 'variaveis' (mesmo formato do perfis.json). modo: modbus | ascii. paridade: N, E ou O.",
+  "perfil": "weg_cfw500",
+  "modo": "modbus",
+  "porta": "COM3",
+  "baud": 19200,
+  "paridade": "E",
+  "bits_dados": 8,
+  "stop_bits": 1,
+  "escravo": 1,
+  "intervalo_ms": 500,
+  "timeout_ms": 300,
+  "limiar": 10,
+  "confirmacao_s": 2,
+  "var_grafico_2": "corrente",
+  "ascii": {"formato": "kv", "separador": ";", "virgula_decimal": false},
+  "maquina": {
+    "nome": "Extrusora 03",
+    "drive": "WEG CFW500 7,5 kW",
+    "responsavel": "Denilson Rodrigues",
+    "cliente": "Linha de produção A",
+    "observacoes": ""
+  }
+}

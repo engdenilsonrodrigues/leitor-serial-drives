@@ -1,0 +1,69 @@
+{
+  "_nota": "Endereço = offset Modbus base 0 (PDU). Registrador 4xxxx = endereço + 40001. CONFIRME sempre no manual do seu drive/firmware. tipo: u16, s16, u32, s32 (32 bits = palavra alta primeiro). fc: 3 = holding, 4 = input. ascii: chave (modo chave=valor) ou índice de coluna (modo CSV).",
+  "generico": {
+    "nome": "Genérico (editável)",
+    "var_movimento": "velocidade",
+    "limiar": 10,
+    "variaveis": [
+      {"chave": "velocidade", "nome": "Velocidade", "unidade": "rpm", "end": 0, "fc": 3, "tipo": "s16", "escala": 1, "ascii": "RPM"},
+      {"chave": "corrente", "nome": "Corrente do motor", "unidade": "A", "end": 1, "fc": 3, "tipo": "u16", "escala": 0.1, "ascii": "I"},
+      {"chave": "frequencia", "nome": "Frequência de saída", "unidade": "Hz", "end": 2, "fc": 3, "tipo": "u16", "escala": 0.1, "ascii": "F"},
+      {"chave": "torque", "nome": "Torque", "unidade": "%", "end": 3, "fc": 3, "tipo": "s16", "escala": 0.1, "ascii": "T"},
+      {"chave": "vdc", "nome": "Tensão barramento CC", "unidade": "V", "end": 4, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "VDC"},
+      {"chave": "temperatura", "nome": "Temperatura", "unidade": "°C", "end": 5, "fc": 3, "tipo": "s16", "escala": 0.1, "ascii": "TEMP"},
+      {"chave": "falha", "nome": "Código de falha", "unidade": "", "end": 6, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "FALHA", "falha": true}
+    ]
+  },
+  "weg_cfw500": {
+    "nome": "WEG CFW500 / CFW11 (endereço = nº do parâmetro)",
+    "var_movimento": "velocidade",
+    "limiar": 10,
+    "variaveis": [
+      {"chave": "velocidade", "nome": "Velocidade do motor (P0002)", "unidade": "rpm", "end": 2, "fc": 3, "tipo": "s16", "escala": 1, "ascii": "P0002"},
+      {"chave": "corrente", "nome": "Corrente do motor (P0003)", "unidade": "A", "end": 3, "fc": 3, "tipo": "u16", "escala": 0.1, "ascii": "P0003"},
+      {"chave": "vdc", "nome": "Tensão barramento CC (P0004)", "unidade": "V", "end": 4, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "P0004"},
+      {"chave": "frequencia", "nome": "Frequência de saída (P0005)", "unidade": "Hz", "end": 5, "fc": 3, "tipo": "u16", "escala": 0.1, "ascii": "P0005"},
+      {"chave": "tensao_saida", "nome": "Tensão de saída (P0007)", "unidade": "V", "end": 7, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "P0007"},
+      {"chave": "torque", "nome": "Torque do motor (P0009)", "unidade": "%", "end": 9, "fc": 3, "tipo": "s16", "escala": 0.1, "ascii": "P0009"},
+      {"chave": "temperatura", "nome": "Temperatura dissipador (P0030)", "unidade": "°C", "end": 30, "fc": 3, "tipo": "s16", "escala": 0.1, "ascii": "P0030"},
+      {"chave": "alarme", "nome": "Alarme atual (P0048)", "unidade": "", "end": 48, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "P0048"},
+      {"chave": "falha", "nome": "Falha atual (P0049)", "unidade": "", "end": 49, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "P0049", "falha": true}
+    ]
+  },
+  "weg_sca06": {
+    "nome": "WEG SCA06 servo (confirmar escalas no manual)",
+    "var_movimento": "velocidade",
+    "limiar": 5,
+    "variaveis": [
+      {"chave": "velocidade", "nome": "Velocidade do motor (P0002)", "unidade": "rpm", "end": 2, "fc": 3, "tipo": "s16", "escala": 1, "ascii": "P0002"},
+      {"chave": "corrente", "nome": "Corrente do motor (P0003)", "unidade": "A", "end": 3, "fc": 3, "tipo": "u16", "escala": 0.1, "ascii": "P0003"},
+      {"chave": "vdc", "nome": "Tensão barramento CC (P0004)", "unidade": "V", "end": 4, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "P0004"},
+      {"chave": "torque", "nome": "Torque (P0009)", "unidade": "%", "end": 9, "fc": 3, "tipo": "s16", "escala": 0.1, "ascii": "P0009"},
+      {"chave": "falha", "nome": "Falha atual (P0049)", "unidade": "", "end": 49, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "P0049", "falha": true}
+    ]
+  },
+  "siemens_v20_g120": {
+    "nome": "Siemens SINAMICS V20 / G120 (dados de processo)",
+    "var_movimento": "velocidade_pct",
+    "limiar": 1,
+    "variaveis": [
+      {"chave": "zsw", "nome": "Palavra de status ZSW (40110)", "unidade": "", "end": 109, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "ZSW"},
+      {"chave": "velocidade_pct", "nome": "Velocidade real HIW (40111)", "unidade": "% nominal", "end": 110, "fc": 3, "tipo": "s16", "escala": 0.006103515625, "ascii": "HIW"}
+    ]
+  },
+  "abb_acs355": {
+    "nome": "ABB ACS355 / ACS550 (registrador 4xxxx = 40000 + parâmetro)",
+    "var_movimento": "velocidade",
+    "limiar": 10,
+    "variaveis": [
+      {"chave": "velocidade", "nome": "Velocidade (01.02)", "unidade": "rpm", "end": 101, "fc": 3, "tipo": "s16", "escala": 1, "ascii": "0102"},
+      {"chave": "frequencia", "nome": "Frequência de saída (01.03)", "unidade": "Hz", "end": 102, "fc": 3, "tipo": "s16", "escala": 0.1, "ascii": "0103"},
+      {"chave": "corrente", "nome": "Corrente (01.04)", "unidade": "A", "end": 103, "fc": 3, "tipo": "u16", "escala": 0.1, "ascii": "0104"},
+      {"chave": "torque", "nome": "Torque (01.05)", "unidade": "%", "end": 104, "fc": 3, "tipo": "s16", "escala": 0.1, "ascii": "0105"},
+      {"chave": "vdc", "nome": "Tensão barramento CC (01.07)", "unidade": "V", "end": 106, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "0107"},
+      {"chave": "tensao_saida", "nome": "Tensão de saída (01.09)", "unidade": "V", "end": 108, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "0109"},
+      {"chave": "temperatura", "nome": "Temperatura do drive (01.10)", "unidade": "°C", "end": 109, "fc": 3, "tipo": "s16", "escala": 0.1, "ascii": "0110"},
+      {"chave": "falha", "nome": "Última falha (04.01)", "unidade": "", "end": 400, "fc": 3, "tipo": "u16", "escala": 1, "ascii": "0401", "falha": true}
+    ]
+  }
+}
